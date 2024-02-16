@@ -15,6 +15,8 @@ import pandas as pd
 
 import ipywidgets.widgets as widgets
 
+import inspect
+
 #import optuna
 #import sqlite3
 #import IPython.display
@@ -108,21 +110,35 @@ def plot_performance_diagram(metrics, subfig_func=None):
                 contours_coloring='lines',
             )
          ).update_layout(height=500, width=500)
+
+    if 'model' not in metrics.columns:
+        metrics = metrics.assign(model='Singleton')
     
-    if 'target_threshold' in metrics.columns:
-        for t in metrics['target_threshold'].sort_values().unique():
-            subfig = px.line(metrics[metrics['target_threshold'] == t].reset_index(), x='SR', y='POD', height=500, width=500, range_x=[
-                             0, 1], range_y=[0, 1], hover_data=['index', 'CSI', 'target_threshold', 'regression_threshold'])
+    if callable(subfig_func):
+        subfig_func_param_names = inspect.signature(subfig_func).parameters.keys()
+    
+    for model, model_metrics in metrics.groupby('model'):
+        if 'target_threshold' in metrics.columns:
+            for t in metrics['target_threshold'].sort_values().unique():
+                subfig = px.line(model_metrics[model_metrics['target_threshold'] == t].reset_index(), x='SR', y='POD', height=500, width=500, range_x=[
+                                0, 1], range_y=[0, 1], hover_data=['index', 'CSI', 'target_threshold', 'regression_threshold'])
+                if callable(subfig_func):
+                    available_arguments = dict(model=model, t=t, fig=subfig)
+                    arguments = {param: available_arguments[param] for param in subfig_func_param_names}
+                    subfig = subfig_func(**arguments)
+                fig.add_traces(
+                    subfig.data
+                )
+
+        else:
+            subfig = px.scatter(model_metrics.reset_index(), x='SR', y='POD', height=500, width=500, range_x=[0,1], range_y=[0,1], hover_data=['index','CSI'])
             if callable(subfig_func):
-                subfig = subfig_func(subfig, t)
+                available_arguments = dict(model=model, subfig=subfig)
+                arguments = {param: available_arguments[param] for param in subfig_func_param_names}
+                subfig = subfig_func(**arguments)
             fig.add_traces(
                 subfig.data
             )
-        pass
-    else:
-        fig.add_traces(
-            px.scatter(metrics.reset_index(), x='SR', y='POD', height=500, width=500, range_x=[0,1], range_y=[0,1], hover_data=['index','CSI']).data
-        )
     
     fig.update_xaxes(title='Success Ratio').update_yaxes(title='Probability of Detection')
 
