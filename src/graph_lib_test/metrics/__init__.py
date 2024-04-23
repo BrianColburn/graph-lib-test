@@ -46,6 +46,8 @@ def compute_metrics(cmat: np.ndarray, *rest) -> dict[str, np.double]:
         'CSS': frequency_of_hits - detection_failure_ratio
     }
 
+    results['SR'] = 1-results['FAR']
+
     if np.isnan(results['PSS']):
         results['PSS'] = -1
 
