@@ -69,7 +69,7 @@ def plot_roc_diagram(metrics, subfig_func=None):
         if 'target_threshold' in metrics.columns:
             for t in metrics['target_threshold'].sort_values().unique():
                 subfig = px.line(model_metrics[model_metrics['target_threshold'] == t].reset_index(), x='F', y='POD', height=500, width=500, range_x=[
-                                0, 1], range_y=[0, 1], hover_data=['index', 'PSS', 'target_threshold', 'regression_threshold'])
+                                0, 1], range_y=[0, 1], hover_data=['index', 'PSS', 'target_threshold', 'regression_threshold', 'model'])
                 if callable(subfig_func):
                     available_arguments = dict(model=model, t=t, fig=subfig)
                     arguments = {param: available_arguments[param] for param in subfig_func_param_names}
@@ -115,7 +115,7 @@ def plot_performance_diagram(metrics, subfig_func=None):
         if 'target_threshold' in metrics.columns:
             for t in metrics['target_threshold'].sort_values().unique():
                 subfig = px.line(model_metrics[model_metrics['target_threshold'] == t].reset_index(), x='SR', y='POD', height=500, width=500, range_x=[
-                                0, 1], range_y=[0, 1], hover_data=['index', 'CSI', 'target_threshold', 'regression_threshold'])
+                                0, 1], range_y=[0, 1], hover_data=['index', 'CSI', 'target_threshold', 'regression_threshold', 'model'])
                 if callable(subfig_func):
                     available_arguments = dict(model=model, t=t, fig=subfig)
                     arguments = {param: available_arguments[param] for param in subfig_func_param_names}
@@ -134,9 +134,22 @@ def plot_performance_diagram(metrics, subfig_func=None):
                 subfig.data
             )
     
-    fig.update_xaxes(title='Success Ratio').update_yaxes(title='Probability of Detection')
-
-    return fig.update_traces(selector=dict(type='contour'), contours_coloring="none", contours_showlabels=True, name='CSI')
+    fig = fmt_presentation_figure(fig
+                                  .update_layout(
+                                      title="Performance Diagram",
+                                      height=500,
+                                      width=580,
+                                      showlegend=True)
+                                  .update_xaxes(title='Success Ratio')
+                                  .update_yaxes(title='Probability of Detection')
+                                  .update_traces(
+                                      selector=dict(type='contour'),
+                                      contours_coloring="none",
+                                      contours_showlabels=True,
+                                      name='CSI')
+                                  )
+    
+    return fig
 
 
 def mk_taylor_diagram_info(df: pd.DataFrame, colors: Callable=None) -> pd.DataFrame:
