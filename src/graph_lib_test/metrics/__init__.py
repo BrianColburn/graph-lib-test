@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 import pandas as pd
 
@@ -54,12 +55,21 @@ def compute_metrics(cmat: np.ndarray, *rest) -> dict[str, np.double]:
     return results
 
 
-def calc_threshold_metrics(regression_df, target_name='target', regression_names=['regression'], target_thresholds=None, regression_thresholds=None):
+def calc_threshold_metrics(
+        regression_df: pd.DataFrame,
+        target_name: str='target',
+        regression_names: list[str]=['regression'],
+        target_thresholds: Optional[np.ndarray]=None,
+        regression_thresholds: Optional[np.ndarray]=None):
     if target_thresholds is None:
-        target_thresholds = [1]
+        target_thresholds = np.linspace(
+            start=regression_df[target_name].min(),
+            stop=regression_df[target_name].max(),
+            num=51,
+        )
 
     if regression_thresholds is None:
-        regression_thresholds = np.linspace(0, 10, num=51)
+        regression_thresholds = target_thresholds
 
     dfs = []
 
