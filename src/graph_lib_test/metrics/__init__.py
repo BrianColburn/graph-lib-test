@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 
@@ -59,14 +59,17 @@ def calc_threshold_metrics(
         regression_df: pd.DataFrame,
         target_name: str='target',
         regression_names: list[str]=['regression'],
-        target_thresholds: Optional[np.ndarray]=None,
+        target_thresholds: Optional[np.ndarray | Literal['unique']]=None,
         regression_thresholds: Optional[np.ndarray]=None):
+
     if target_thresholds is None:
         target_thresholds = np.linspace(
             start=regression_df[target_name].min(),
             stop=regression_df[target_name].max(),
             num=51,
         )
+    elif target_thresholds == 'unique':
+        target_thresholds = np.sort(regression_df[target_name].unique())
 
     if regression_thresholds is None:
         regression_thresholds = target_thresholds
