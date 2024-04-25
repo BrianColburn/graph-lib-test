@@ -88,7 +88,15 @@ def plot_roc_diagram(metrics, subfig_func=None):
                 subfig.data
             )
     
-    fig.update_xaxes(title='False Positive Rate').update_yaxes(title='True Positive Rate')
+    fig = fmt_presentation_figure(fig
+                                  .update_layout(
+                                      title="ROC Diagram",
+                                      height=500,
+                                      width=580,
+                                      showlegend=True)
+                                  .update_xaxes(title='False Positive Rate')
+                                  .update_yaxes(title='True Positive Rate')
+                                  )
     
     return fig
 
