@@ -58,9 +58,13 @@ def compute_metrics(cmat: np.ndarray, *rest) -> dict[str, np.double]:
 def calc_threshold_metrics(
         regression_df: pd.DataFrame,
         target_name: str='target',
-        regression_names: list[str]=['regression'],
+        prediction_cols: Optional[list[str]]=None,
         target_thresholds: Optional[np.ndarray | Literal['unique']]=None,
         regression_thresholds: Optional[np.ndarray]=None):
+
+    if prediction_cols == None:
+        prediction_cols = [col for col in regression_df.columns[regression_df.dtypes == float]
+                           if col != 'target']
 
     if target_thresholds is None:
         target_thresholds = np.linspace(
@@ -76,7 +80,7 @@ def calc_threshold_metrics(
 
     dfs = []
 
-    for regression_name in regression_names:
+    for regression_name in prediction_cols:
         df = pd.DataFrame([{
             'target_threshold': target_threshold,
             'regression_threshold': regression_threshold,
@@ -95,3 +99,65 @@ def calc_threshold_metrics(
         dfs.append(df)
 
     return pd.concat(dfs)
+
+
+
+def calc_regression_metrics(regression_df):
+    metrics = dict()
+    residuals = regression_df['prediction'] - regression_df['target']
+    metrics['me'] = residuals.mean()
+    metrics['mae'] = residuals.abs().mean()
+    metrics['mse'] = (residuals**2).mean()
+    metrics['rmse'] = metrics['mse']**0.5
+    return metrics
+
+
+def central_freq(regression_df: pd.DataFrame, prediction_cols: Optional[list[str]]=None, thresholds=None):
+    if prediction_cols == None:
+        prediction_cols = [col for col in regression_df.columns[regression_df.dtypes == float]
+                           if col != 'target']
+    thresholds = thresholds or [1, 2, 3, 4, np.inf]
+
+    model_central_frequencies = []
+
+    for model_name in prediction_cols:
+        cfs = []
+        df = regression_df[['target', model_name]].rename(columns={model_name: 'prediction'})
+        differences = (df['prediction'] - df['target']).abs()
+
+        for threshold in thresholds:
+            mask = differences <= threshold
+
+            cfs.append({
+                'threshold': threshold,
+                'mae': calc_regression_metrics(df[mask])['mae'],
+                'count': mask.sum(),
+                'percent': mask.mean()*100,
+            })
+        
+        df = pd.DataFrame(cfs)
+        df['model'] = model_name
+        model_central_frequencies.append(df)
+    
+    model_central_frequencies = pd.concat(model_central_frequencies).set_index(['model', 'threshold'])
+
+    return model_central_frequencies
+
+
+def calc_ignorance_score(
+        data_frame: pd.DataFrame,
+        target_name: str='target',
+        prediction_cols: Optional[list[str]]=None,
+        log_base: float=np.e,
+) -> pd.Series:
+
+    if prediction_cols == None:
+        prediction_cols = [col for col in data_frame.columns[data_frame.dtypes == float]
+                           if col != 'target']
+    
+    ignorance_score = pd.DataFrame({
+        model_name: -np.log(data_frame[target_name]*data_frame[model_name]+(1-data_frame[target_name])*(1-data_frame[model_name]))/np.log(log_base)
+        for model_name in prediction_cols
+    }).mean().rename_axis('model').rename('score')
+
+    return ignorance_score

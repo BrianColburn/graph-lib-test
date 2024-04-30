@@ -1,5 +1,6 @@
 #scikit-learn related imports
-from typing import Callable
+from typing import Callable, Collection, Optional, Sequence
+from uuid import uuid4
 import sklearn
 import sklearn.metrics
 import sklearn.calibration
@@ -17,10 +18,6 @@ import pandas as pd
 import ipywidgets.widgets as widgets
 
 import inspect
-
-#import optuna
-#import sqlite3
-#import IPython.display
 
 import re
 
@@ -65,11 +62,26 @@ def plot_roc_diagram(metrics, subfig_func=None):
     if callable(subfig_func):
         subfig_func_param_names = inspect.signature(subfig_func).parameters.keys()
     
+    iterations = 0
+    
     for model, model_metrics in metrics.groupby('model'):
         if 'target_threshold' in metrics.columns:
             for t in metrics['target_threshold'].sort_values().unique():
-                subfig = px.line(model_metrics[model_metrics['target_threshold'] == t].reset_index(), x='F', y='POD', height=500, width=500, range_x=[
-                                0, 1], range_y=[0, 1], hover_data=['index', 'PSS', 'target_threshold', 'regression_threshold', 'model'])
+                subfig = px.line(model_metrics[model_metrics['target_threshold'] == t].reset_index(),
+                                 x='F',
+                                 y='POD',
+                                 range_x=[0, 1],
+                                 range_y=[0, 1],
+                                 hover_data=['index',
+                                             'PSS',
+                                             'target_threshold',
+                                             'regression_threshold',
+                                             'model'])
+                subfig.update_traces(
+                    name=f'{model} (t={t})',
+                    showlegend=True,
+                    line_color=px.colors.DEFAULT_PLOTLY_COLORS[iterations % len(px.colors.DEFAULT_PLOTLY_COLORS)])
+
                 if callable(subfig_func):
                     available_arguments = dict(model=model, t=t, fig=subfig)
                     arguments = {param: available_arguments[param] for param in subfig_func_param_names}
@@ -77,6 +89,8 @@ def plot_roc_diagram(metrics, subfig_func=None):
                 fig.add_traces(
                     subfig.data
                 )
+
+                iterations += 1
 
         else:
             subfig = px.scatter(model_metrics.reset_index(), x='F', y='POD', height=500, width=500, range_x=[0,1], range_y=[0,1], hover_data=['index','PSS'])
@@ -87,6 +101,8 @@ def plot_roc_diagram(metrics, subfig_func=None):
             fig.add_traces(
                 subfig.data
             )
+
+            iterations += 1
     
     fig = fmt_presentation_figure(fig
                                   .update_layout(
@@ -94,8 +110,12 @@ def plot_roc_diagram(metrics, subfig_func=None):
                                       height=500,
                                       width=580,
                                       showlegend=True)
-                                  .update_xaxes(title='False Positive Rate')
-                                  .update_yaxes(title='True Positive Rate')
+                                  .update_xaxes(
+                                      title='False Positive Rate',
+                                      range=[-0.01, 1.01])
+                                  .update_yaxes(
+                                      title='True Positive Rate',
+                                      range=[0, 1.01])
                                   )
     
     return fig
@@ -119,11 +139,26 @@ def plot_performance_diagram(metrics, subfig_func=None):
     if callable(subfig_func):
         subfig_func_param_names = inspect.signature(subfig_func).parameters.keys()
     
+    iterations = 0
+    
     for model, model_metrics in metrics.groupby('model'):
         if 'target_threshold' in metrics.columns:
             for t in metrics['target_threshold'].sort_values().unique():
-                subfig = px.line(model_metrics[model_metrics['target_threshold'] == t].reset_index(), x='SR', y='POD', height=500, width=500, range_x=[
-                                0, 1], range_y=[0, 1], hover_data=['index', 'CSI', 'target_threshold', 'regression_threshold', 'model'])
+                subfig = px.line(model_metrics[model_metrics['target_threshold'] == t].reset_index(),
+                                 x='SR',
+                                 y='POD',
+                                 range_x=[0, 1],
+                                 range_y=[0, 1],
+                                 hover_data=['index',
+                                             'CSI',
+                                             'target_threshold',
+                                             'regression_threshold',
+                                             'model'])
+                subfig.update_traces(
+                    name=f'{model} (t={t})',
+                    showlegend=True,
+                    line_color=px.colors.DEFAULT_PLOTLY_COLORS[iterations % len(px.colors.DEFAULT_PLOTLY_COLORS)])
+
                 if callable(subfig_func):
                     available_arguments = dict(model=model, t=t, fig=subfig)
                     arguments = {param: available_arguments[param] for param in subfig_func_param_names}
@@ -131,6 +166,8 @@ def plot_performance_diagram(metrics, subfig_func=None):
                 fig.add_traces(
                     subfig.data
                 )
+
+                iterations += 1
 
         else:
             subfig = px.scatter(model_metrics.reset_index(), x='SR', y='POD', height=500, width=500, range_x=[0,1], range_y=[0,1], hover_data=['index','CSI'])
@@ -141,6 +178,8 @@ def plot_performance_diagram(metrics, subfig_func=None):
             fig.add_traces(
                 subfig.data
             )
+
+            iterations += 1
     
     fig = fmt_presentation_figure(fig
                                   .update_layout(
@@ -154,6 +193,7 @@ def plot_performance_diagram(metrics, subfig_func=None):
                                       selector=dict(type='contour'),
                                       contours_coloring="none",
                                       contours_showlabels=True,
+                                      hoverinfo='skip',
                                       name='CSI')
                                   )
     
@@ -176,9 +216,13 @@ def mk_taylor_diagram_info(df: pd.DataFrame, colors: Callable=None) -> pd.DataFr
 
 
 def plot_taylor_diagram(taylor_df: pd.DataFrame) -> go.Figure:
+    if not (set(taylor_df.columns) >= {'model', 'x', 'y', 'length', 'rmse'}):
+        taylor_df = mk_taylor_diagram_info(taylor_df)
+    min_bound = taylor_df[['x','y']].min().min()
+    max_bound = taylor_df[['x','y']].max().max()
     taylor_fig = go.Figure(layout=dict(
-        xaxis_range=[min(-0.1, taylor_df['x'].min()*1.1), taylor_df['x'].max()*1.1],
-        yaxis_range=[min(-0.1, taylor_df['y'].min()*1.1), taylor_df['y'].max()*1.1])).update_layout(height=500, width=500)
+        xaxis_range=[min(-0.01, -np.log10(max_bound), min_bound*1.1), max_bound*1.1],
+        yaxis_range=[min(-0.01, -np.log10(max_bound), min_bound*1.1), max_bound*1.1])).update_layout(height=500, width=500)
 
     #taylor_fig = px.scatter(taylor_df, x='x', y='y',color='model', height=500, width=550, range_x=[-0.1, taylor_df['length'].max()*1.1], range_y=[-0.1,taylor_df['length'].max()*1.1], title='Taylor Diagram')
 
@@ -190,18 +234,24 @@ def plot_taylor_diagram(taylor_df: pd.DataFrame) -> go.Figure:
             x0=0, y0=0, x1=np.cos(np.arccos(corr))*taylor_df['length'].max()*1.05, y1=np.sin(np.arccos(corr))*taylor_df['length'].max()*1.05
         )
 
-    for rmse in [0.5,1,1.5,2,2.25,2.5]:
+    for rmse in np.linspace(taylor_df['rmse'].min(), taylor_df['rmse'].max(), num=4):
         taylor_fig = taylor_fig.add_shape(type="circle",
             line_color="orange",
             line_width=1,
-            label=dict(text=f'{rmse}', textposition="middle left"),
-            x0=taylor_df['x']['target']-rmse, y0=taylor_df['y']['target']-rmse, x1=taylor_df['x']['target']+rmse, y1=taylor_df['y']['target']+rmse
+            label=dict(text=f'{rmse:.2f}', textposition="middle left"),
+            x0=taylor_df['x']['target']-rmse,
+            y0=taylor_df['y']['target']-rmse,
+            x1=taylor_df['x']['target']+rmse,
+            y1=taylor_df['y']['target']+rmse
         )
 
     taylor_fig = taylor_fig.add_shape(type="circle",
         line_color="black",
         line_width=1,
-            x0=-taylor_df['length'].max()*1.05, y0=-taylor_df['length'].max()*1.05, x1=taylor_df['length'].max()*1.05, y1=taylor_df['length'].max()*1.05
+            x0=-taylor_df['length'].max()*1.05,
+            y0=-taylor_df['length'].max()*1.05,
+            x1=taylor_df['length'].max()*1.05,
+            y1=taylor_df['length'].max()*1.05
     )
 
     names_in_legend = set()
@@ -216,3 +266,117 @@ def plot_taylor_diagram(taylor_df: pd.DataFrame) -> go.Figure:
     taylor_fig = fmt_presentation_figure(taylor_fig.update_layout(title="Taylor Diagram").update_xaxes(title="Standard Deviation (observation)").update_yaxes(title="Standard Deviation").update_layout(height=500, width=580, showlegend=True))
     
     return taylor_fig
+
+
+def plot_attributes_diagram(
+        data_frame: Optional[pd.DataFrame]=None,
+        y_true=None,
+        y_prob: Optional[Sequence[str | float]]=None,
+        n_bins=10,
+) -> go.Figure:
+    if y_true == None and isinstance(data_frame, pd.DataFrame) and 'target' in data_frame:
+        y_true = 'target'
+    
+    if isinstance(y_true, str) and isinstance(data_frame, pd.DataFrame) and y_true in data_frame:
+        y_true = data_frame[y_true]
+
+    if y_prob == None and isinstance(data_frame, pd.DataFrame):
+        y_prob = [col for col in data_frame.columns[data_frame.dtypes == float]
+                           if col != 'target']
+    
+    if len(y_prob) > 0:
+        sample_element = y_prob[0]
+        if isinstance(sample_element, str) and isinstance(data_frame, pd.DataFrame) and set(y_prob) <= set(data_frame.columns):
+            y_prob: pd.DataFrame = data_frame[y_prob]
+    
+    climatology = y_true.mean()
+
+    is_binary_classification = set(y_true.unique()) == {0,1}
+
+    observed_label = None
+    forecast_label = None
+    axes_range = None
+
+    if is_binary_classification:
+        observed_label, forecast_label = 'Observed Frequency', 'Forecast Probability'
+        axes_range = [0,1]
+        dfs = []
+
+        for model_name in y_prob.columns:
+            df = pd.DataFrame(
+                    np.array(sklearn.calibration.calibration_curve(y_true, y_prob[model_name], n_bins=n_bins)).transpose(),
+                    columns=['Observed Frequency', 'Forecast Probability'])
+            df['model'] = model_name
+            dfs.append(df)
+
+        df = pd.concat(dfs)
+    else:
+        observed_label, forecast_label = 'Observed', 'Forecast'
+        axes_range = [np.min(y_true), np.max(y_true)]
+        bins = np.histogram_bin_edges(y_true, bins=n_bins)
+
+        y_true_label = 'target'
+        label_iterations = 0
+        while y_true_label in y_prob.columns:
+            if label_iterations > 10:
+                raise RuntimeError('Unable to generate unique name for target values')
+            y_true_label = uuid4().hex()
+            label_iterations += 1
+
+        means = y_prob.assign(**{y_true_label: y_true})
+        means = means.groupby(np.digitize(y_true, bins)).mean()
+        df = means.melt(id_vars=y_true_label, var_name='model').rename(columns={
+            y_true_label: observed_label,
+            'value': forecast_label,
+        })
+    
+
+    rel_figure = px.line(df,
+                         x=forecast_label,
+                         y=observed_label,
+                         color='model',
+                         width=600,
+                         height=500)
+
+    rel_figure.add_shape(
+        type='line', line=dict(dash='dash'),
+        x0=axes_range[0], x1=axes_range[1], y0=axes_range[0], y1=axes_range[1]
+    )
+    rel_figure.add_vline(x=climatology, line=dict(dash='dash'))
+    rel_figure.add_hline(y=climatology, line=dict(dash='dash'))
+    rel_figure.add_shape(
+        type='line',
+        line=dict(width=4, color='aqua'),
+        x0=axes_range[0],
+        x1=axes_range[1],
+        y0=(climatology-axes_range[0])/2+axes_range[0],
+        y1=(axes_range[1]+climatology)/2,
+    )
+    #rel_figure.add_shape(
+    #    type='line', line=dict(width=4, color='aqua'),
+    #    x0=climatology, x1=1, y0=climatology, y1=(1-climatology)/2,
+    #    layer='below'
+    #)
+    rel_figure.add_shape(
+        type='path',
+        path=f'''M{axes_range[0]} {(climatology-axes_range[0])/2+axes_range[0]}
+                 L{axes_range[1]} {(axes_range[1]+climatology)/2}
+                 L{axes_range[1]} {axes_range[1]}
+                 L{axes_range[0]} {axes_range[0]}
+                 Z
+                 M{climatology} {axes_range[0]}
+                 L{climatology} {axes_range[1]}
+                 L{axes_range[1]} {axes_range[1]}
+                 L{axes_range[0]} {axes_range[0]}
+                 Z''',
+        layer='below',
+        fillcolor='lightblue',
+        line=dict(width=0)
+    )
+    rel_figure.update_xaxes(range=axes_range)
+    rel_figure.update_yaxes(range=axes_range)
+    rel_figure.update_layout(title=f'Reliability Diagram')
+
+    rel_figure = fmt_presentation_figure(rel_figure)
+
+    return rel_figure
