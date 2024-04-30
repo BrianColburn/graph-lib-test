@@ -281,7 +281,7 @@ def plot_attributes_diagram(
         y_true = data_frame[y_true]
 
     if y_prob == None and isinstance(data_frame, pd.DataFrame):
-        y_prob = [col for col in data_frame.columns[data_frame.dtypes == float]
+        y_prob = [col for col in data_frame.columns[[t in [float, np.float32] for t in data_frame.dtypes]]
                            if col != 'target']
     
     if len(y_prob) > 0:

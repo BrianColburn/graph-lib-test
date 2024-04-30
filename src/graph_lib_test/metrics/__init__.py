@@ -63,7 +63,7 @@ def calc_threshold_metrics(
         regression_thresholds: Optional[np.ndarray]=None):
 
     if prediction_cols == None:
-        prediction_cols = [col for col in regression_df.columns[regression_df.dtypes == float]
+        prediction_cols = [col for col in regression_df.columns[[t in [float, np.float32] for t in regression_df.dtypes]]
                            if col != 'target']
 
     if target_thresholds is None:
@@ -114,7 +114,7 @@ def calc_regression_metrics(regression_df):
 
 def central_freq(regression_df: pd.DataFrame, prediction_cols: Optional[list[str]]=None, thresholds=None):
     if prediction_cols == None:
-        prediction_cols = [col for col in regression_df.columns[regression_df.dtypes == float]
+        prediction_cols = [col for col in regression_df.columns[[t in [float, np.float32] for t in regression_df.dtypes]]
                            if col != 'target']
     thresholds = thresholds or [1, 2, 3, 4, np.inf]
 
@@ -152,7 +152,7 @@ def calc_ignorance_score(
 ) -> pd.Series:
 
     if prediction_cols == None:
-        prediction_cols = [col for col in data_frame.columns[data_frame.dtypes == float]
+        prediction_cols = [col for col in data_frame.columns[[t in [float, np.float32] for t in data_frame.dtypes]]
                            if col != 'target']
     
     ignorance_score = pd.DataFrame({
