@@ -238,11 +238,19 @@ def plot_taylor_diagram(taylor_df: pd.DataFrame) -> go.Figure:
         taylor_fig = taylor_fig.add_shape(type="circle",
             line_color="orange",
             line_width=1,
-            label=dict(text=f'{rmse:.2f}', textposition="middle left"),
             x0=taylor_df['x']['target']-rmse,
             y0=taylor_df['y']['target']-rmse,
             x1=taylor_df['x']['target']+rmse,
             y1=taylor_df['y']['target']+rmse
+        )
+
+        taylor_fig = taylor_fig.add_annotation(
+            x=taylor_df['x']['target'] - rmse/np.sqrt(2),
+            y=taylor_df['y']['target'] + rmse/np.sqrt(2),
+            text=f'{rmse:.2f}',
+            showarrow=False,
+            xshift=-10,
+            yshift=10,
         )
 
     taylor_fig = taylor_fig.add_shape(type="circle",
@@ -259,7 +267,14 @@ def plot_taylor_diagram(taylor_df: pd.DataFrame) -> go.Figure:
     for name, row in taylor_df.iterrows():
         subfig = px.scatter(pd.DataFrame(row).transpose(), x='x', y='y', hover_data=['model', 'rmse'])
         name_in_legend = name.split("-")[0]
-        subfig = subfig.update_traces(marker_color=row.get('color'), name=name_in_legend, showlegend=name_in_legend not in names_in_legend, opacity=0.5 if 'pruned' in name else (1 if 'de-' in name else 1))
+
+        subfig = subfig.update_traces(
+            marker_color=row.get('color'),
+            name=name_in_legend,
+            showlegend=name_in_legend not in names_in_legend,
+            legendgroup=name_in_legend,
+        )
+
         if name_in_legend not in names_in_legend: names_in_legend.add(name_in_legend)
         taylor_fig = taylor_fig.add_traces(subfig.data)
     
