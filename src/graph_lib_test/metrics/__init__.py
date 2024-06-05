@@ -62,7 +62,7 @@ def calc_threshold_metrics(
         target_thresholds: Optional[np.ndarray | Literal['unique']]=None,
         regression_thresholds: Optional[np.ndarray]=None):
 
-    if prediction_cols == None:
+    if type(prediction_cols) == None:
         prediction_cols = [col for col in regression_df.columns[[t in [float, np.float32] for t in regression_df.dtypes]]
                            if col != 'target']
 
@@ -98,7 +98,10 @@ def calc_threshold_metrics(
         df['model'] = regression_name
         dfs.append(df)
 
-    return pd.concat(dfs)
+    return pd.concat(dfs, ignore_index=True)
+
+def calc_auc(metrics: pd.DataFrame) -> pd.Series:
+    return metrics.groupby(['target_threshold', 'model']).apply(lambda df: np.trapz(y=df['POD'], x=df['F'])).rename('auc')
 
 
 
